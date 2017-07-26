@@ -12,8 +12,8 @@ buildscript {
     }
 }
 
-version "1.1.0"
-group = 'org.grails.plugins'
+version "1.2.0"
+group = 'cbp.oss'
 
 //apply plugin:"eclipse"
 apply plugin: "idea"
@@ -21,6 +21,7 @@ apply plugin: "org.grails.grails-plugin"
 apply plugin: "org.grails.grails-plugin-publish"
 apply plugin: "org.grails.grails-gsp"
 apply plugin: "asset-pipeline"
+apply plugin: 'maven-publish'
 
 ext {
     grailsVersion = project.grailsVersion
@@ -59,18 +60,34 @@ task wrapper(type: Wrapper) {
     gradleVersion = gradleWrapperVersion
 }
 
-grailsPublish {
-    user = project.bintray_user ?: ''
-    key = project.bintray_key ?: ''
-    githubSlug = 'MatrixCrawler/grails-spring-security-oauth2'
-    license {
-        name = 'Apache-2.0'
+publishing {
+    publications {
+        mavenJar(MavenPublication) {
+            pom.withXml {
+                def pomNode = asNode()
+                pomNode.dependencyManagement.replaceNode {}
+
+                // simply remove dependencies without a version
+                // version-less dependencies are handled with dependencyManagement
+                // see https://github.com/spring-gradle-plugins/dependency-management-plugin/issues/8 for more complete solutions
+                pomNode.dependencies.dependency.findAll {
+                    it.version.text().isEmpty()
+                }.each {
+                    it.replaceNode {}
+                }
+            }
+            from components.java
+        }
     }
-    title = "Spring Security OAuth2"
-    desc = "This plugin provides the capability to authenticate via oauth. Depends on grails-spring-security-core."
-    developers = [johndoe: "John Doe"]
-    portalUser = ""
-    portalPassword = ""
+    repositories {
+        maven {
+            credentials {
+                username nexusDeployUsername // valeur à mettre dans ~/.gradle/gradle.properties
+                password nexusDeployPassword // valeur à mettre dans ~/.gradle/gradle.properties
+            }
+            url "https://wwwnexus.cbp-solutions.fr/nexus/content/repositories/${project.version ==~ /(?:\d+\.)*\d+/ ? 'releases' : 'snapshots' }"
+        }
+    }
 }
 
 assets {
